@@ -3,9 +3,6 @@ dist/
 build/
 *.egg-info/
 
-# Ignore fragment and atom name library
-src/hydride/*.pickle
-
 # Ignore folder created by mypy
 .mypy_cache/
 
@@ -44,3 +41,6 @@ htmlcov
 # Ignore OS specific files
 *.fuse_hidden*
 .DS_Store
+
+# venv
+hydride-venv

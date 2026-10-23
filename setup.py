@@ -161,7 +161,13 @@ def get_mol_names_in_ccd():
 
 
 def fragment_library_needs_update(file_path):
-    """Check whether a generated fragment library predates histidine variants."""
+    """Check whether a generated fragment library predates histidine variants.
+
+    Not every variant owns a fragment in a correct library: fragments of
+    HID are identical to fragments of molecules added later and are
+    therefore stored under those molecules. Hence, the library is only
+    outdated if none of the variants owns a fragment.
+    """
     if not isfile(file_path):
         return True
 
@@ -171,7 +177,7 @@ def fragment_library_needs_update(file_path):
     except (OSError, pickle.UnpicklingError, EOFError):
         return True
 
-    return not {"HID", "HIE", "HIP"}.issubset(
+    return {"HID", "HIE", "HIP"}.isdisjoint(
         {value[0] for value in fragment_dict.values()}
     )
 
