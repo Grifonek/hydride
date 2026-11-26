@@ -330,3 +330,18 @@ def test_histidine_variants_in_standard_library():
     library = hydride.FragmentLibrary.standard_library()
     source_names = {value[0] for value in library._frag_dict.values()}
     assert {"HID", "HIE", "HIP"}.issubset(source_names)
+
+
+def test_cysteine_thiolate_in_standard_library():
+    """A thiolate cysteine SG gets no hydrogen, a neutral SG keeps HG."""
+    library = hydride.FragmentLibrary.standard_library()
+    res_name, _, _, hydrogen_coord = library._frag_dict[("S", -1, 0, (1,))]
+    assert res_name.startswith("CYS")
+    assert len(hydrogen_coord) == 0
+
+    molecule = info.residue("CYS")
+    heavy_atoms = molecule[molecule.element != "H"]
+    for charge, has_hg in [(0, True), (-1, False)]:
+        heavy_atoms.charge[heavy_atoms.atom_name == "SG"] = charge
+        hydrogenated, _ = hydride.add_hydrogen(heavy_atoms)
+        assert ("HG" in hydrogenated.atom_name) == has_hg

@@ -61,6 +61,10 @@ PROMINENT_MOLECULES = [
     "HOH",
 ]
 
+# Fragment key (element, charge, stereo, bond types) of a thiolate sulfur
+# with a single bond, as in a deprotonated cysteine SG
+THIOLATE_FRAGMENT_KEY = ("S", -1, 0, (1,))
+
 
 original_wd = os.getcwd()
 # Change directory to setup directory to ensure correct file identification
@@ -154,6 +158,21 @@ def get_histidine_variants():
     return variants
 
 
+def get_cysteine_thiolate_fragment():
+    """Get the SG fragment of the cysteine thiolate (SG -1, no HG).
+
+    A malformed CCD entry (ZXF) stores this fragment with a hydrogen and
+    overwrites the correct one. Only the SG fragment is taken, the other
+    fragments of the variant share their keys with neutral molecules.
+    """
+    for molecule in get_protonation_variants():
+        if molecule.res_name[0] == "CYS_LL_DHG":
+            library = FragmentLibrary()
+            library.add_molecule(molecule)
+            return library._frag_dict[THIOLATE_FRAGMENT_KEY]
+    raise KeyError("CYS_LL_DHG is missing in the protonation variants")
+
+
 def get_mol_names_in_ccd():
     ccd = get_ccd()
     atom_category = ccd["chem_comp_atom"]
@@ -161,7 +180,8 @@ def get_mol_names_in_ccd():
 
 
 def fragment_library_needs_update(file_path):
-    """Check whether a generated fragment library predates histidine variants.
+    """Check whether a generated fragment library predates histidine variants
+    or the cysteine thiolate fix.
 
     Not every variant owns a fragment in a correct library: fragments of
     HID are identical to fragments of molecules added later and are
@@ -175,6 +195,14 @@ def fragment_library_needs_update(file_path):
         with open(file_path, "rb") as file:
             fragment_dict = pickle.load(file)
     except (OSError, pickle.UnpicklingError, EOFError):
+        return True
+
+    thiolate = fragment_dict.get(THIOLATE_FRAGMENT_KEY)
+    if (
+        thiolate is None
+        or len(thiolate[3]) != 0
+        or not str(thiolate[0]).startswith("CYS")
+    ):
         return True
 
     return {"HID", "HIE", "HIP"}.isdisjoint(
@@ -225,6 +253,10 @@ if fragment_library_needs_update(fragment_file_path):
                 # Molecule has missing coordinates
                 continue
             std_fragment_library.add_molecule(mol)
+    # Restore the thiolate sulfur overwritten by a malformed CCD entry
+    std_fragment_library._frag_dict[THIOLATE_FRAGMENT_KEY] = (
+        get_cysteine_thiolate_fragment()
+    )
     print("Compiling fragment library... Done" + " " * 20)
     with open(fragment_file_path, "wb") as fragments_file:
         pickle.dump(std_fragment_library._frag_dict, fragments_file)
